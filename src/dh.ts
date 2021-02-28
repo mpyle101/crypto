@@ -12,7 +12,7 @@ export const encrypt = (
   const salt   = crypto.randomBytes(16)
   const aeskey = crypto.pbkdf2Sync(secret, salt, 400000, 32, 'sha512')
   const cipher = aes.encrypt(aeskey, data, encoding)
-  const encslt = rsa.encrypt({ public_key, data: salt })
+  const encslt = rsa.encrypt(public_key)(salt)
   const result = Buffer.alloc(encslt.length + cipher.length)
   encslt.copy(result)
   cipher.copy(result, encslt.length)
@@ -26,11 +26,11 @@ export const decrypt = (
   data: string | Buffer,
   encoding: BufferEncoding = 'utf-8'
 ) => {
-  const buf = Buffer.isBuffer(data) ? data : Buffer.from(data, encoding)
-  const encslt = buf.slice(0, rsa.KEY_SIZE)
-  const salt   = rsa.decrypt({ private_key, data: encslt })
+  const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data, encoding)
+  const encslt = buffer.slice(0, rsa.KEY_SIZE)
+  const salt   = rsa.decrypt(private_key)(encslt)
   const aeskey = crypto.pbkdf2Sync(secret, salt, 400000, 32, 'sha512')
-  const cipher = buf.slice(rsa.KEY_SIZE)
+  const cipher = buffer.slice(rsa.KEY_SIZE)
 
-  return aes.decrypt(aeskey, buf.slice(rsa.KEY_SIZE), encoding)
+  return aes.decrypt(aeskey, buffer.slice(rsa.KEY_SIZE), encoding)
 }

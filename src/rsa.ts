@@ -33,37 +33,31 @@ export const generate_keys = (secret?: string) => {
   return { public_key, private_key }
 }
 
-export const encrypt = ({
-  public_key,
-  data,
-  secret,
-  encoding = 'utf-8'
-}:{
-  public_key: string
-  data: string | Buffer
+export const encrypt = (
+  public_key: string,
   secret?: string
-  encoding?: BufferEncoding
-}) => crypto.publicEncrypt(
-  {
-    key: public_key,
-    padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-    oaepHash: "sha256",
-    passphrase: secret || undefined
-  },
-  Buffer.isBuffer(data) ? data : Buffer.from(data, encoding)
-)
+) => (
+  data: string | Buffer,
+  encoding: BufferEncoding = 'utf-8'
+) => {
+  return crypto.publicEncrypt(
+    {
+      key: public_key,
+      padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+      oaepHash: "sha256",
+      passphrase: secret || undefined
+    },
+    Buffer.isBuffer(data) ? data : Buffer.from(data, encoding)
+  )
+}
 
-export const decrypt = ({
-  private_key,
-  data,
-  secret,
-  encoding = 'base64'
-}: {
-  private_key: string
-  data: string | Buffer
+export const decrypt = (
+  private_key: string,
   secret?: string
-  encoding?: BufferEncoding
-}) => crypto.privateDecrypt(
+) => (
+  data: string | Buffer,
+  encoding: BufferEncoding = 'base64'
+) => crypto.privateDecrypt(
   {
     key: private_key,
     padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,

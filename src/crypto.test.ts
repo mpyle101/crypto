@@ -69,10 +69,10 @@ describe('Crypto tests', () => {
     it('Should encrypt / decrypt simple text', () => {
       const { public_key, private_key } = rsa.generate_keys()
 
-      const cipher = rsa.encrypt({ public_key, data: PLAIN_TEXT })
+      const cipher = rsa.encrypt(public_key)(PLAIN_TEXT)
       expect(cipher.toString('utf-8')).not.toEqual(PLAIN_TEXT)
 
-      const plain = rsa.decrypt({ private_key, data: cipher })
+      const plain = rsa.decrypt(private_key)(cipher)
       expect(plain.toString('utf-8')).toEqual(PLAIN_TEXT)
     })
 
@@ -80,10 +80,10 @@ describe('Crypto tests', () => {
       const data = crypto.randomBytes(102)
       const { public_key, private_key } = rsa.generate_keys()
 
-      const cipher = rsa.encrypt({ public_key, data })
+      const cipher = rsa.encrypt(public_key)(data)
       expect(cipher).not.toEqual(data)
 
-      const plain = rsa.decrypt({ private_key, data: cipher })
+      const plain = rsa.decrypt(private_key)(cipher)
       expect(plain).toEqual(data)
     })
 
@@ -91,10 +91,10 @@ describe('Crypto tests', () => {
       const secret = 'my little pony'
       const { public_key, private_key } = rsa.generate_keys(secret)
 
-      const cipher = rsa.encrypt({ public_key, secret, data: PLAIN_TEXT })
+      const cipher = rsa.encrypt(public_key, secret)(PLAIN_TEXT)
       expect(cipher.toString('utf-8')).not.toEqual(PLAIN_TEXT)
 
-      const plain = rsa.decrypt({ private_key, secret, data: cipher })
+      const plain = rsa.decrypt(private_key, secret)(cipher)
       expect(plain.toString('utf-8')).toEqual(PLAIN_TEXT)
     })
   })
@@ -124,7 +124,7 @@ describe('Crypto tests', () => {
     })
   })
 
-  describe.only('TOTP', () => {
+  describe('TOTP', () => {
     const { public_key, private_key } = rsa.generate_keys()
     const { public_key: s_public_key } = ecdh.generate_keys()
     const { private_key: c_private_key } = ecdh.generate_keys()

@@ -1,6 +1,10 @@
 import crypto from 'crypto'
 
-import { PublicKey, PrivateKey, Secret } from './ecdh.types'
+import {
+  ECDHSecret as Secret,
+  ECDHPublicKey as PublicKey,
+  ECDHPrivateKey as PrivateKey
+} from './types'
 
 export { Secret }
 

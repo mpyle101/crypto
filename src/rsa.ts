@@ -3,7 +3,10 @@ import crypto from 'crypto'
 import { pipe } from 'fp-ts/function'
 import { map, toError, tryCatch } from 'fp-ts/Either'
 
-import { PublicKey, PrivateKey } from './rsa.types'
+import { 
+  RSAPublicKey as PublicKey, 
+  RSAPrivateKey as PrivateKey
+} from './types'
 
 export { PublicKey, PrivateKey }
 export const MODULOUS = 2048

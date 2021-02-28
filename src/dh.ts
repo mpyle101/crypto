@@ -13,7 +13,6 @@ export const encrypt = (
   const aeskey = crypto.pbkdf2Sync(secret, salt, 400000, 32, 'sha512')
   const cipher = aes.encrypt(aeskey, data, encoding)
   const encslt = rsa.encrypt({ public_key, data: salt })
-
   const result = Buffer.alloc(encslt.length + cipher.length)
   encslt.copy(result)
   cipher.copy(result, encslt.length)

@@ -1,6 +1,6 @@
 import crypto from 'crypto'
 
-import { aes, dh, ecdh, rsa } from './index'
+import { aes, dh, ecdh, rsa, totp } from './index'
 
 const PUBLIC_HEADER  = '-----BEGIN PUBLIC KEY-----'
 const PUBLIC_FOOTER  = '-----END PUBLIC KEY-----'
@@ -121,6 +121,74 @@ describe('Crypto tests', () => {
       const s_secret = ecdh.compute_secret(c_public_key, s_private_key)
 
       expect(s_secret).toEqual(c_secret)
+    })
+  })
+
+  describe.only('TOTP', () => {
+    const { public_key, private_key } = rsa.generate_keys()
+    const { public_key: s_public_key } = ecdh.generate_keys()
+    const { private_key: c_private_key } = ecdh.generate_keys()
+    const secret = ecdh.compute_secret(s_public_key, c_private_key)
+
+    it('Should generate the same HOTP token for the same counter', () => {
+      const s_token = totp.generate_hotp(secret, 3)
+      const c_token = totp.generate_hotp(secret, 3)
+
+      expect(s_token).toEqual(c_token)
+    })
+
+    it('Should generate the different HOTP tokens for different counters', () => {
+      const s_token = totp.generate_hotp(secret, 3)
+      const c_token = totp.generate_hotp(secret, 4)
+
+      expect(s_token).not.toEqual(c_token)
+    })
+
+    it('Should verify a TOTP token', () => {
+      const token = totp.generate_token(secret)
+      expect(totp.verify_token(token, secret)).toBeTruthy()
+    })
+
+    it('Should verify a TOTP token 15 seconds in the past', () => {
+      const token = totp.generate_token(secret)
+
+      const now  = Date.now()
+      const mock = jest.spyOn(global.Date, 'now')
+        .mockReturnValue(now - 15000)
+
+      expect(totp.verify_token(token, secret)).toBeTruthy()
+      mock.mockRestore()
+    })
+
+    it('Should verify a TOTP token 15 seconds in the future', () => {
+      const token = totp.generate_token(secret)
+
+      const now  = Date.now()
+      const mock = jest.spyOn(global.Date, 'now')
+        .mockReturnValue(now + 15000)
+
+      expect(totp.verify_token(token, secret)).toBeTruthy()
+      mock.mockRestore()
+    })
+
+    it('Should NOT verify a TOTP token 50 seconds in the past', () => {
+      const token = totp.generate_token(secret)
+      const now  = Date.now()
+      const mock = jest.spyOn(global.Date, 'now')
+        .mockReturnValue(now - 50000)
+
+      expect(totp.verify_token(token, secret)).toBeFalsy()
+      mock.mockRestore()
+    })
+
+    it('Should NOT verify a TOTP token 50 seconds in the future', () => {
+      const token = totp.generate_token(secret)
+      const now  = Date.now()
+      const mock = jest.spyOn(global.Date, 'now')
+        .mockReturnValue(now + 50000)
+
+      expect(totp.verify_token(token, secret)).toBeFalsy()
+      mock.mockRestore()
     })
   })
 

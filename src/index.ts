@@ -1,5 +1,5 @@
 export * as aes  from './aes'
 export * as dh   from './dh'
-export * as ecdh from './edch'
+export * as ecdh from './ecdh'
 export * as rsa  from './rsa'
 export * as totp from './totp'

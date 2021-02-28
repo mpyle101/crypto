@@ -14,7 +14,8 @@
     "test": "jest"
   },
   "dependencies": {
-    "fp-ts": "2.9.3"
+    "fp-ts": "2.9.3",
+    "io-ts": "2.2.15"
   },
   "devDependencies": {
     "@types/jest": "26.0.20",

@@ -1,5 +1,8 @@
 import crypto from 'crypto'
 
+import { pipe } from 'fp-ts/function'
+import { fold, getOrElseW } from 'fp-ts/Either'
+
 import { aes, dh, ecdh, rsa, totp } from './index'
 
 const PUBLIC_HEADER  = '-----BEGIN PUBLIC KEY-----'
@@ -10,6 +13,8 @@ const PRIVATE_ENC_HEADER = '-----BEGIN ENCRYPTED PRIVATE KEY-----'
 const PRIVATE_ENC_FOOTER = '-----END ENCRYPTED PRIVATE KEY-----'
 
 const PLAIN_TEXT = 'sphinx of black quartz, judge my vow'
+
+export const rethrow = (err: Error) => { throw (err) }
 
 describe('Crypto tests', () => {
   describe('AES', () => {
@@ -48,7 +53,11 @@ describe('Crypto tests', () => {
 
   describe('RSA', () => {
     it('Should generate a simple key pair', () => {
-      const { public_key, private_key } = rsa.generate_keys()
+      const { public_key, private_key } = pipe(
+        undefined,
+        rsa.generate_keys,
+        getOrElseW(rethrow)
+      )
 
       expect(public_key).toContain(PUBLIC_HEADER)
       expect(public_key).toContain(PUBLIC_FOOTER)
@@ -57,8 +66,11 @@ describe('Crypto tests', () => {
     })
 
     it('Should generate an encrypted key pair', () => {
-      const secret = 'my little pony'
-      const { public_key, private_key } = rsa.generate_keys(secret)
+      const { public_key, private_key } = pipe(
+        'my little pony',
+        rsa.generate_keys,
+        getOrElseW(rethrow)
+      )
 
       expect(public_key).toContain(PUBLIC_HEADER)
       expect(public_key).toContain(PUBLIC_FOOTER)
@@ -67,7 +79,11 @@ describe('Crypto tests', () => {
     })
 
     it('Should encrypt / decrypt simple text', () => {
-      const { public_key, private_key } = rsa.generate_keys()
+      const { public_key, private_key } = pipe(
+        undefined,
+        rsa.generate_keys,
+        getOrElseW(rethrow)
+      )
 
       const cipher = rsa.encrypt(public_key)(PLAIN_TEXT)
       expect(cipher.toString('utf-8')).not.toEqual(PLAIN_TEXT)
@@ -78,8 +94,12 @@ describe('Crypto tests', () => {
 
     it('Should encrypt / decrypt random bytes', () => {
       const data = crypto.randomBytes(102)
-      const { public_key, private_key } = rsa.generate_keys()
-
+      const { public_key, private_key } = pipe(
+        undefined,
+        rsa.generate_keys,
+        getOrElseW(rethrow)
+      )
+        
       const cipher = rsa.encrypt(public_key)(data)
       expect(cipher).not.toEqual(data)
 
@@ -89,7 +109,11 @@ describe('Crypto tests', () => {
 
     it('Should encrypt / decrypt with encrypted keys', () => {
       const secret = 'my little pony'
-      const { public_key, private_key } = rsa.generate_keys(secret)
+      const { public_key, private_key } = pipe(
+        secret,
+        rsa.generate_keys,
+        getOrElseW(rethrow)
+      )
 
       const cipher = rsa.encrypt(public_key, secret)(PLAIN_TEXT)
       expect(cipher.toString('utf-8')).not.toEqual(PLAIN_TEXT)
@@ -125,7 +149,11 @@ describe('Crypto tests', () => {
   })
 
   describe('TOTP', () => {
-    const { public_key, private_key } = rsa.generate_keys()
+    const { public_key, private_key } = pipe(
+      undefined,
+      rsa.generate_keys,
+      getOrElseW(rethrow)
+    )
     const { public_key: s_public_key } = ecdh.generate_keys()
     const { private_key: c_private_key } = ecdh.generate_keys()
     const secret = ecdh.compute_secret(s_public_key, c_private_key)
@@ -193,7 +221,11 @@ describe('Crypto tests', () => {
   })
 
   describe('DH', () => {
-    const { public_key, private_key } = rsa.generate_keys()
+    const { public_key, private_key } = pipe(
+      undefined,
+      rsa.generate_keys,
+      getOrElseW(rethrow)
+    )
     const { public_key: s_public_key } = ecdh.generate_keys()
     const { private_key: c_private_key } = ecdh.generate_keys()
     const secret = ecdh.compute_secret(s_public_key, c_private_key)
@@ -207,8 +239,7 @@ describe('Crypto tests', () => {
     })
 
     it('Should encrypt / decrypt random bytes', () => {
-      const data   = crypto.randomBytes(102)
-      const secret = crypto.randomBytes(32)
+      const data = crypto.randomBytes(102)
 
       const cipher = dh.encrypt(public_key, secret, data)
       expect(cipher).not.toEqual(data)
@@ -218,8 +249,7 @@ describe('Crypto tests', () => {
     })
 
     it('Should encrypt / decrypt larger data', () => {
-      const data   = crypto.randomBytes(12345)
-      const secret = crypto.randomBytes(32)
+      const data = crypto.randomBytes(12345)
 
       const cipher = dh.encrypt(public_key, secret, data)
       expect(cipher).not.toEqual(data)

@@ -2,10 +2,11 @@ import crypto from 'crypto'
 
 import * as aes from './aes'
 import * as rsa from './rsa'
+import { Secret } from './ecdh'
 
 export const encrypt = (
-  public_key: string,
-  secret: string | Buffer,
+  public_key: rsa.PublicKey,
+  secret: Secret,
   data: string | Buffer,
   encoding: BufferEncoding = 'utf-8'
 ) => {
@@ -21,8 +22,8 @@ export const encrypt = (
 }
 
 export const decrypt = (
-  private_key: string,
-  secret: string | Buffer,
+  private_key: rsa.PrivateKey,
+  secret: Secret,
   data: string | Buffer,
   encoding: BufferEncoding = 'utf-8'
 ) => {

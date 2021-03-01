@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 
 import { pipe } from 'fp-ts/function'
-import { map, toError, tryCatch } from 'fp-ts/Either'
+import { map, toError, tryCatch, right } from 'fp-ts/Either'
 
 import { 
   RSAPublicKey as PublicKey, 
@@ -42,14 +42,17 @@ export const encrypt = (
 ) => (
   data: string | Buffer,
   encoding: BufferEncoding = 'utf-8'
-) => crypto.publicEncrypt(
-  {
-    key: public_key,
-    padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-    oaepHash: "sha256",
-    passphrase: secret || undefined
-  },
-  Buffer.isBuffer(data) ? data : Buffer.from(data, encoding)
+) => tryCatch(
+  () => crypto.publicEncrypt(
+    {
+      key: public_key,
+      padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+      oaepHash: "sha256",
+      passphrase: secret || undefined
+    },
+    Buffer.isBuffer(data) ? data : Buffer.from(data, encoding)
+  ),
+  toError
 )
 
 export const decrypt = (
@@ -58,12 +61,15 @@ export const decrypt = (
 ) => (
   data: string | Buffer,
   encoding: BufferEncoding = 'base64'
-) => crypto.privateDecrypt(
-  {
-    key: private_key,
-    padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-    oaepHash: "sha256",
-    passphrase: secret || undefined
-  },
-  Buffer.isBuffer(data) ? data : Buffer.from(data, encoding)
+) => tryCatch(
+  () => crypto.privateDecrypt(
+    {
+      key: private_key,
+      padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+      oaepHash: "sha256",
+      passphrase: secret || undefined
+    },
+    Buffer.isBuffer(data) ? data : Buffer.from(data, encoding)
+  ),
+  toError
 )

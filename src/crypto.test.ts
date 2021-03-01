@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 
 import { pipe } from 'fp-ts/function'
-import { fold, getOrElseW } from 'fp-ts/Either'
+import { bind, bindTo, chain, fold, getOrElseW, right } from 'fp-ts/Either'
 
 import { aes, dh, ecdh, rsa, totp } from './index'
 
@@ -52,75 +52,88 @@ describe('Crypto tests', () => {
   })
 
   describe('RSA', () => {
-    it('Should generate a simple key pair', () => {
-      const { public_key, private_key } = pipe(
+    it('Should generate a simple key pair', () =>
+      pipe(
         undefined,
         rsa.generate_keys,
-        getOrElseW(rethrow)
+        fold(
+          rethrow,
+          ({ public_key, private_key }) => {
+            expect(public_key).toContain(PUBLIC_HEADER)
+            expect(public_key).toContain(PUBLIC_FOOTER)
+            expect(private_key).toContain(PRIVATE_HEADER)
+            expect(private_key).toContain(PRIVATE_FOOTER)
+          }
+        )
       )
+    )
 
-      expect(public_key).toContain(PUBLIC_HEADER)
-      expect(public_key).toContain(PUBLIC_FOOTER)
-      expect(private_key).toContain(PRIVATE_HEADER)
-      expect(private_key).toContain(PRIVATE_FOOTER)
-    })
-
-    it('Should generate an encrypted key pair', () => {
-      const { public_key, private_key } = pipe(
+    it('Should generate an encrypted key pair', () =>
+      pipe(
         'my little pony',
         rsa.generate_keys,
-        getOrElseW(rethrow)
+        fold(
+          rethrow,
+          ({ public_key, private_key }) => {
+            expect(public_key).toContain(PUBLIC_HEADER)
+            expect(public_key).toContain(PUBLIC_FOOTER)
+            expect(private_key).toContain(PRIVATE_ENC_HEADER)
+            expect(private_key).toContain(PRIVATE_ENC_FOOTER)
+          }
+        )
       )
+    )
 
-      expect(public_key).toContain(PUBLIC_HEADER)
-      expect(public_key).toContain(PUBLIC_FOOTER)
-      expect(private_key).toContain(PRIVATE_ENC_HEADER)
-      expect(private_key).toContain(PRIVATE_ENC_FOOTER)
-    })
-
-    it('Should encrypt / decrypt simple text', () => {
-      const { public_key, private_key } = pipe(
-        undefined,
-        rsa.generate_keys,
-        getOrElseW(rethrow)
+    it('Should encrypt / decrypt simple text', () =>
+      pipe(
+        bindTo('data')(right(PLAIN_TEXT)),
+        bind('keys',   () => rsa.generate_keys()),
+        bind('cipher', ({ keys, data })   => rsa.encrypt(keys.public_key)(data)),
+        bind('plain',  ({ keys, cipher }) => rsa.decrypt(keys.private_key)(cipher)),
+        fold(
+          rethrow,
+          ({ cipher, plain }) => {
+            expect(cipher.toString('utf-8')).not.toEqual(PLAIN_TEXT)
+            expect(plain.toString('utf-8')).toEqual(PLAIN_TEXT)
+          }
+        )
       )
+    )
 
-      const cipher = rsa.encrypt(public_key)(PLAIN_TEXT)
-      expect(cipher.toString('utf-8')).not.toEqual(PLAIN_TEXT)
-
-      const plain = rsa.decrypt(private_key)(cipher)
-      expect(plain.toString('utf-8')).toEqual(PLAIN_TEXT)
-    })
-
-    it('Should encrypt / decrypt random bytes', () => {
-      const data = crypto.randomBytes(102)
-      const { public_key, private_key } = pipe(
-        undefined,
-        rsa.generate_keys,
-        getOrElseW(rethrow)
+    it('Should encrypt / decrypt random bytes', () =>
+      pipe(
+        bindTo('data')(right(crypto.randomBytes(102))),
+        bind('keys',   () => rsa.generate_keys()),
+        bind('cipher', ({ keys, data })   => rsa.encrypt(keys.public_key)(data)),
+        bind('plain',  ({ keys, cipher }) => rsa.decrypt(keys.private_key)(cipher)),
+        fold(
+          rethrow,
+          ({ cipher, plain, data }) => {
+            expect(cipher).not.toEqual(data)
+            expect(plain).toEqual(data)
+          }
+        )
       )
-        
-      const cipher = rsa.encrypt(public_key)(data)
-      expect(cipher).not.toEqual(data)
+    )
 
-      const plain = rsa.decrypt(private_key)(cipher)
-      expect(plain).toEqual(data)
-    })
-
-    it('Should encrypt / decrypt with encrypted keys', () => {
-      const secret = 'my little pony'
-      const { public_key, private_key } = pipe(
-        secret,
-        rsa.generate_keys,
-        getOrElseW(rethrow)
+    it('Should encrypt / decrypt with encrypted keys', () =>
+      pipe(
+        bindTo('data')(right(crypto.randomBytes(102))),
+        bind('secret', () => right('my little pony')),
+        bind('keys',   () => rsa.generate_keys()),
+        bind('cipher', ({ keys, secret, data }) =>
+          rsa.encrypt(keys.public_key, secret)(data)),
+        bind('plain', ({ keys, secret, cipher }) =>
+          rsa.decrypt(keys.private_key, secret)(cipher)),
+        fold(
+          rethrow,
+          ({ cipher, plain, data }) => {
+            expect(cipher).not.toEqual(data)
+            expect(plain).toEqual(data)
+          }
+        )
       )
-
-      const cipher = rsa.encrypt(public_key, secret)(PLAIN_TEXT)
-      expect(cipher.toString('utf-8')).not.toEqual(PLAIN_TEXT)
-
-      const plain = rsa.decrypt(private_key, secret)(cipher)
-      expect(plain.toString('utf-8')).toEqual(PLAIN_TEXT)
-    })
+    )
   })
 
   describe('ECDH', () => {
@@ -226,36 +239,53 @@ describe('Crypto tests', () => {
       rsa.generate_keys,
       getOrElseW(rethrow)
     )
-    const { public_key: s_public_key } = ecdh.generate_keys()
+    const { public_key: s_public_key }   = ecdh.generate_keys()
     const { private_key: c_private_key } = ecdh.generate_keys()
     const secret = ecdh.compute_secret(s_public_key, c_private_key)
 
-    it('Should encrypt / decrypt simple text', () => {
-      const cipher = dh.encrypt(public_key, secret, PLAIN_TEXT)
-      expect(cipher.toString('utf-8')).not.toEqual(PLAIN_TEXT)
+    it('Should encrypt / decrypt simple text', () =>
+      pipe(
+        bindTo('data')(right(PLAIN_TEXT)),
+        bind('cipher', ({ data }) => dh.encrypt(public_key, secret, data)),
+        bind('plain', ({ data, cipher }) => dh.decrypt(private_key, secret, cipher)),
+        fold(
+          rethrow,
+          ({ cipher, plain, data }) => {
+            expect(cipher.toString('utf-8')).not.toEqual(data)
+            expect(plain.toString('utf-8')).toEqual(data)
+          }
+        )
+      )
+    )
 
-      const plain = dh.decrypt(private_key, secret, cipher)
-      expect(plain.toString('utf-8')).toEqual(PLAIN_TEXT)
-    })
+    it('Should encrypt / decrypt random bytes', () =>
+      pipe(
+        bindTo('data')(right(crypto.randomBytes(102))),
+        bind('cipher', ({ data }) => dh.encrypt(public_key, secret, data)),
+        bind('plain', ({ data, cipher }) => dh.decrypt(private_key, secret, cipher)),
+        fold(
+          rethrow,
+          ({ cipher, plain, data }) => {
+            expect(cipher).not.toEqual(data)
+            expect(plain).toEqual(data)
+          }
+        )
+      )
+    )
 
-    it('Should encrypt / decrypt random bytes', () => {
-      const data = crypto.randomBytes(102)
-
-      const cipher = dh.encrypt(public_key, secret, data)
-      expect(cipher).not.toEqual(data)
-
-      const plain = dh.decrypt(private_key, secret, cipher)
-      expect(plain).toEqual(data)
-    })
-
-    it('Should encrypt / decrypt larger data', () => {
-      const data = crypto.randomBytes(12345)
-
-      const cipher = dh.encrypt(public_key, secret, data)
-      expect(cipher).not.toEqual(data)
-
-      const plain = dh.decrypt(private_key, secret, cipher)
-      expect(plain).toEqual(data)
-    })
+    it('Should encrypt / decrypt larger data', () =>
+      pipe(
+        bindTo('data')(right(crypto.randomBytes(12345))),
+        bind('cipher', ({ data }) => dh.encrypt(public_key, secret, data)),
+        bind('plain', ({ data, cipher }) => dh.decrypt(private_key, secret, cipher)),
+        fold(
+          rethrow,
+          ({ cipher, plain, data }) => {
+            expect(cipher).not.toEqual(data)
+            expect(plain).toEqual(data)
+          }
+        )
+      )
+    )
   })
 })

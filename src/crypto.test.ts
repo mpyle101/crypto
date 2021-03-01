@@ -258,34 +258,28 @@ describe('Crypto tests', () => {
       )
     )
 
-    it('Should encrypt / decrypt random bytes', () =>
-      pipe(
+    it('Should encrypt / decrypt random bytes', () => {
+      const { cipher, plain, data } = pipe(
         bindTo('data')(right(crypto.randomBytes(102))),
         bind('cipher', ({ data }) => dh.encrypt(public_key, secret, data)),
         bind('plain', ({ data, cipher }) => dh.decrypt(private_key, secret, cipher)),
-        fold(
-          rethrow,
-          ({ cipher, plain, data }) => {
-            expect(cipher).not.toEqual(data)
-            expect(plain).toEqual(data)
-          }
-        )
+        getOrElseW(rethrow)
       )
-    )
 
-    it('Should encrypt / decrypt larger data', () =>
-      pipe(
+      expect(cipher).not.toEqual(data)
+      expect(plain).toEqual(data)
+    })
+
+    it('Should encrypt / decrypt larger data', () => {
+      const { cipher, plain, data } = pipe(
         bindTo('data')(right(crypto.randomBytes(12345))),
         bind('cipher', ({ data }) => dh.encrypt(public_key, secret, data)),
         bind('plain', ({ data, cipher }) => dh.decrypt(private_key, secret, cipher)),
-        fold(
-          rethrow,
-          ({ cipher, plain, data }) => {
-            expect(cipher).not.toEqual(data)
-            expect(plain).toEqual(data)
-          }
-        )
+        getOrElseW(rethrow)
       )
-    )
+
+      expect(cipher).not.toEqual(data)
+      expect(plain).toEqual(data)
+    })
   })
 })

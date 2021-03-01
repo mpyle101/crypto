@@ -1,20 +1,26 @@
 import crypto from 'crypto'
+import { Newtype, iso } from 'newtype-ts'
 
-import {
-  ECDHSecret as Secret,
-  ECDHPublicKey as PublicKey,
-  ECDHPrivateKey as PrivateKey
-} from './types'
+export interface Secret extends
+  Newtype<{ readonly Secret: unique symbol }, Buffer> {}
 
-export { Secret }
+interface PublicKey extends
+  Newtype<{ readonly PublicKey: unique symbol }, Buffer> {}
+
+interface PrivateKey extends
+  Newtype<{ readonly PrivateKey: unique symbol }, Buffer> {}
+
+const isoSecret     = iso<Secret>()
+const isoPublicKey  = iso<PublicKey>()
+const isoPrivateKey = iso<PrivateKey>()
 
 export const generate_keys = () => {
   const ecdh = crypto.createECDH('secp521r1')
   ecdh.generateKeys()
 
   return {
-    public_key: ecdh.getPublicKey() as PublicKey,
-    private_key: ecdh.getPrivateKey() as PrivateKey
+    public_key: isoPublicKey.wrap(ecdh.getPublicKey()),
+    private_key: isoPrivateKey.wrap(ecdh.getPrivateKey())
   }
 }
 
@@ -23,6 +29,6 @@ export const compute_secret = (
   private_key: PrivateKey
 ) => {
   const ecdh = crypto.createECDH('secp521r1')
-  ecdh.setPrivateKey(private_key)
-  return ecdh.computeSecret(public_key) as Secret
+  ecdh.setPrivateKey(isoPrivateKey.unwrap(private_key))
+  return isoSecret.wrap(ecdh.computeSecret(isoPublicKey.unwrap(public_key)))
 }

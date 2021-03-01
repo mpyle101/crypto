@@ -1,7 +1,12 @@
 import { createHmac } from 'crypto'
+import { iso } from 'newtype-ts'
+
+import { Secret } from './ecdh'
 
 const DEFAULT_STEP = 20000
 const DEFAULT_WINDOW = 1
+
+const isoSecret = iso<Secret>()
 
 const range = (size: number, start = 0, step = 1) =>
   [...Array(size).keys()].map(i => (i * step) + start)
@@ -22,12 +27,15 @@ const from_counter = (counter: number) =>
   }, Buffer.alloc(8))
 
 export const generate_hotp = (
-  secret: string | Buffer,
+  secret: string | Buffer | Secret,
   counter: number,
   encoding: BufferEncoding = 'base64'
 ) => {
   const decoded = Buffer.isBuffer(secret)
-    ? secret : Buffer.from(secret, encoding)
+    ? secret
+    : typeof secret === 'string'
+      ? Buffer.from(secret, encoding)
+      : isoSecret.get(secret)
 
   const hmac   = createHmac('sha1', decoded);
   const buffer = from_counter(counter)
@@ -38,7 +46,7 @@ export const generate_hotp = (
 }
 
 export const generate_token = (
-  secret: string | Buffer,
+  secret: string | Buffer | Secret,
   offset = 0,
   step = DEFAULT_STEP,
   encoding: BufferEncoding = 'base64'
@@ -49,7 +57,7 @@ export const generate_token = (
 
 export const verify_token = (
   token: number,
-  secret: string | Buffer,
+  secret: string | Buffer | Secret,
   window = DEFAULT_WINDOW,
   step = DEFAULT_STEP
 ) => {

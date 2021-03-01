@@ -1,16 +1,20 @@
 import crypto from 'crypto'
 
 import { pipe } from 'fp-ts/function'
-import { map, toError, tryCatch, right } from 'fp-ts/Either'
+import { map, toError, tryCatch } from 'fp-ts/Either'
+import { Newtype, iso } from 'newtype-ts'
 
-import { 
-  RSAPublicKey as PublicKey, 
-  RSAPrivateKey as PrivateKey
-} from './types'
-
-export { PublicKey, PrivateKey }
 export const MODULOUS = 2048
 export const KEY_SIZE = MODULOUS / 8
+
+export interface PublicKey extends
+  Newtype<{ readonly RSAPublicKey: unique symbol }, string> {}
+
+export interface PrivateKey extends
+  Newtype<{ readonly RSAPrivateKey: unique symbol }, string> {}
+
+const isoPublicKey  = iso<PublicKey>()
+const isoPrivateKey = iso<PrivateKey>()
 
 export const generate_keys = (secret?: string) =>
   pipe(
@@ -31,8 +35,8 @@ export const generate_keys = (secret?: string) =>
       toError
     ),
     map(keys => ({
-      public_key: keys.publicKey as PublicKey,
-      private_key: keys.privateKey as PrivateKey
+      public_key: isoPublicKey.from(keys.publicKey),
+      private_key: isoPrivateKey.from(keys.privateKey)
     }))
   )
 
@@ -45,7 +49,7 @@ export const encrypt = (
 ) => tryCatch(
   () => crypto.publicEncrypt(
     {
-      key: public_key,
+      key: isoPublicKey.get(public_key),
       padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
       oaepHash: "sha256",
       passphrase: secret || undefined
@@ -64,7 +68,7 @@ export const decrypt = (
 ) => tryCatch(
   () => crypto.privateDecrypt(
     {
-      key: private_key,
+      key: isoPrivateKey.get(private_key),
       padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
       oaepHash: "sha256",
       passphrase: secret || undefined

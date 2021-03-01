@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 
 import { pipe } from 'fp-ts/function'
-import { bind, bindTo, chain, fold, getOrElseW, right } from 'fp-ts/Either'
+import { bind, bindTo, fold, getOrElseW, right } from 'fp-ts/Either'
 
 import { aes, dh, ecdh, rsa, totp } from './index'
 
@@ -214,6 +214,7 @@ describe('Crypto tests', () => {
 
     it('Should NOT verify a TOTP token 50 seconds in the past', () => {
       const token = totp.generate_token(secret)
+
       const now  = Date.now()
       const mock = jest.spyOn(global.Date, 'now')
         .mockReturnValue(now - 50000)
@@ -224,6 +225,7 @@ describe('Crypto tests', () => {
 
     it('Should NOT verify a TOTP token 50 seconds in the future', () => {
       const token = totp.generate_token(secret)
+
       const now  = Date.now()
       const mock = jest.spyOn(global.Date, 'now')
         .mockReturnValue(now + 50000)

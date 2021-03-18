@@ -1,9 +1,9 @@
 import crypto from 'crypto'
 
-import { pipe } from 'fp-ts/function'
-import { bind, bindTo, fold, getOrElseW, right } from 'fp-ts/Either'
+import { pipe, flow } from 'fp-ts/function'
+import { bind, bindTo, fold, getOrElseW, map, right } from 'fp-ts/Either'
 
-import { aes, dh, ecdh, rsa, totp } from './index'
+import { aes, dh, rsa, totp } from './index'
 
 const PUBLIC_HEADER  = '-----BEGIN PUBLIC KEY-----'
 const PUBLIC_FOOTER  = '-----END PUBLIC KEY-----'
@@ -136,40 +136,17 @@ describe('Crypto tests', () => {
     )
   })
 
-  describe('ECDH', () => {
-    it('Should generate a key pair', () => {
-      const { public_key, private_key } = ecdh.generate_keys()
-
-      expect(public_key).toBeDefined()
-      expect(private_key).toBeDefined()
-    })
-
-    it('Should compute a shared secret', () => {
-      const {
-        public_key: s_public_key,
-        private_key: s_private_key
-      } = ecdh.generate_keys()
-      const {
-        public_key: c_public_key,
-        private_key: c_private_key
-      } = ecdh.generate_keys()
-
-      const c_secret = ecdh.compute_secret(s_public_key, c_private_key)
-      const s_secret = ecdh.compute_secret(c_public_key, s_private_key)
-
-      expect(s_secret).toEqual(c_secret)
-    })
-  })
-
   describe('TOTP', () => {
-    const { public_key, private_key } = pipe(
-      undefined,
-      rsa.generate_keys,
+    const secret = pipe(
+      bindTo('s_keys')(dh.generate_keys()),
+      bind('c_keys', dh.generate_keys),
+      fold(
+        rethrow,
+        ({ s_keys: { public_key }, c_keys: { private_key } }) => 
+          dh.compute_secret(public_key, private_key)
+      ),
       getOrElseW(rethrow)
     )
-    const { public_key: s_public_key } = ecdh.generate_keys()
-    const { private_key: c_private_key } = ecdh.generate_keys()
-    const secret = ecdh.compute_secret(s_public_key, c_private_key)
 
     it('Should generate the same HOTP token for the same counter', () => {
       const s_token = totp.generate_hotp(secret, 3)
@@ -241,9 +218,44 @@ describe('Crypto tests', () => {
       rsa.generate_keys,
       getOrElseW(rethrow)
     )
-    const { public_key: s_public_key }   = ecdh.generate_keys()
-    const { private_key: c_private_key } = ecdh.generate_keys()
-    const secret = ecdh.compute_secret(s_public_key, c_private_key)
+    const secret = pipe(
+      bindTo('s_keys')(dh.generate_keys()),
+      bind('c_keys', dh.generate_keys),
+      fold(
+        rethrow,
+        ({ s_keys: { public_key }, c_keys: { private_key } }) =>
+          dh.compute_secret(public_key, private_key)
+      ),
+      getOrElseW(rethrow)
+    )
+
+    it('Should generate a key pair', () =>
+      flow(
+        dh.generate_keys,
+        fold(
+          rethrow,
+          keys => {
+            expect(keys.public_key).toBeDefined()
+            expect(keys.private_key).toBeDefined()
+          }
+        )
+      )()
+    )
+
+    it('Should compute a shared secret', () =>
+      pipe(
+        bindTo('s_keys')(dh.generate_keys()),
+        bind('c_keys', dh.generate_keys),
+        bind('c_secret', ({ s_keys, c_keys }) =>
+          dh.compute_secret(s_keys.public_key, c_keys.private_key)),
+        bind('s_secret', ({ s_keys, c_keys }) =>
+          dh.compute_secret(c_keys.public_key, s_keys.private_key)),
+        fold(
+          rethrow,
+          ({ s_secret, c_secret }) => expect(s_secret).toEqual(c_secret)
+        )
+      )
+    )
 
     it('Should encrypt / decrypt simple text', () =>
       pipe(

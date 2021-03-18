@@ -1,7 +1,7 @@
 import { createHmac } from 'crypto'
 import { iso } from 'newtype-ts'
 
-import { Secret } from './ecdh'
+import { Secret } from './dh'
 
 const DEFAULT_STEP = 20000
 const DEFAULT_WINDOW = 1

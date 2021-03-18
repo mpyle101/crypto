@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 
 import { pipe } from 'fp-ts/function'
-import { map, toError, tryCatch } from 'fp-ts/Either'
+import { getOrElseW, map, toError, tryCatch, right, left } from 'fp-ts/Either'
 import { Newtype, iso } from 'newtype-ts'
 
 import * as aes  from './aes'
@@ -19,6 +19,10 @@ export interface PrivateKey extends
 const isoSecret = iso<Secret>()
 const isoPublicKey = iso<PublicKey>()
 const isoPrivateKey = iso<PrivateKey>()
+
+const DIGEST_SIZE = 32
+
+const rethrow = (err: Error) => { throw (err) }
 
 export const generate_keys = () => pipe(
   tryCatch(
@@ -58,17 +62,21 @@ export const encrypt = (
   data: string | Buffer,
   encoding: BufferEncoding = 'utf-8'
 ) => {
+  const hmac   = crypto.createHmac('sha256', isoSecret.unwrap(secret))
+  const digest = hmac.update(data).digest()
+
   const salt   = crypto.randomBytes(16)
-  const aeskey = crypto.pbkdf2Sync(isoSecret.unwrap(secret), salt, 400000, 32, 'sha512')
+  const aeskey = crypto.pbkdf2Sync(crypto.randomBytes(32), salt, 400000, 32, 'sha512')
   const cipher = aes.encrypt(aeskey, data, encoding)
 
   return pipe(
     rsa.encrypt(public_key)(aeskey),
     map(
       enckey => {
-        const result = Buffer.alloc(enckey.length + cipher.length)
-        enckey.copy(result)
-        cipher.copy(result, enckey.length)
+        const result = Buffer.alloc(digest.length + enckey.length + cipher.length)
+        digest.copy(result)
+        enckey.copy(result, digest.length)
+        cipher.copy(result, digest.length + enckey.length)
         return result
       }
     )
@@ -83,19 +91,21 @@ export const encrypt = (
 export const decrypt = (
   private_key: rsa.PrivateKey,
   secret: Secret,
-  data: string | Buffer,
+  cipher: string | Buffer,
   encoding: BufferEncoding = 'utf-8'
 ) => {
-  const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data, encoding)
-
-  return pipe(
-    buffer.slice(0, rsa.KEY_SIZE),
+  const buffer = Buffer.isBuffer(cipher) ? cipher : Buffer.from(cipher, encoding)
+  const digest = buffer.slice(0, DIGEST_SIZE)
+  const aeskey = pipe(
+    buffer.slice(DIGEST_SIZE, DIGEST_SIZE + rsa.KEY_SIZE),
     rsa.decrypt(private_key),
-    map(
-      key => {
-        const cipher = buffer.slice(rsa.KEY_SIZE)
-        return aes.decrypt(key, buffer.slice(rsa.KEY_SIZE), encoding)
-      }
-    )
+    getOrElseW(rethrow)
+  )
+  const data = aes.decrypt(aeskey, buffer.slice(DIGEST_SIZE + rsa.KEY_SIZE))
+  const hmac = crypto.createHmac('sha256', isoSecret.unwrap(secret))
+  const hash = hmac.update(data).digest()
+  return pipe(
+    digest.compare(hash),
+    res => res === 0 ? right(data) : left(new Error('HMAC mismatch'))
   )
 }

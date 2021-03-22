@@ -50,11 +50,13 @@ export const compute_secret = (
 )
 
 /**
- * Generate a 32 byte AES key from the secret and a random salt.
+ * Generate an HMAC of the data using the secret key
+ * Generate a random 32 byte AES key and a random salt.
  * Use the AES key to encrypt the payload.
  * Use the RSA public key to encrypt the AES key.
- * Put the encrypted AES key at the start of the buffer and append
- * the encrypted data.
+ * 
+ * Create the payload from the digest, then the RSA encrypted
+ * AES key, then the AES encrypted data.
  */
 export const encrypt = (
   public_key: rsa.PublicKey,
